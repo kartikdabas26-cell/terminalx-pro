@@ -1,0 +1,64 @@
+body {
+    background-color: #080b10;
+    color: #d1d5db;
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+}
+
+.font-mono-num {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #080b10;
+}
+::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Glow animations */
+.glow-bull {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+}
+.glow-bear {
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.25);
+}
+
+/* Tab animation */
+.tab-active {
+    border-bottom: 2px solid #2563eb;
+    color: #ffffff;
+    background-color: rgba(37, 99, 235, 0.1);
+}
+
+/* Glassmorphism panel */
+.glass-panel {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid #1e293b;
+}
+
+/* Accessible focus outline (Tailwind's reset otherwise removes it) */
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}

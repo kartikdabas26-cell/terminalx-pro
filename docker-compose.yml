@@ -1,0 +1,15 @@
+services:
+  terminalx:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - ALLOWED_ORIGINS=*
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

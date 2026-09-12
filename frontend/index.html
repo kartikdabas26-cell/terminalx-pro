@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TerminalX Pro - institutional-style financial workstation with technical charting, peer comparison, financial statements and an AI research assistant.">
+    <title>TerminalX Pro | Institutional Financial Workstation</title>
+
+    <!-- Tailwind CSS (CDN build). Fine for an MVP / internal tool; for a
+         high-traffic public production deploy, replace with a compiled
+         Tailwind CSS file (see README "Production hardening"). -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plotly.js for financial charts -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <!-- Font Awesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        terminal: {
+                            bg: '#080b10',
+                            card: '#0f172a',
+                            border: '#1e293b',
+                            accent: '#2563eb',
+                            hover: '#1d4ed8',
+                            bull: '#10b981',
+                            bear: '#f43f5e',
+                            text: '#d1d5db',
+                            muted: '#64748b'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen flex flex-col bg-terminal-bg text-terminal-text antialiased selection:bg-terminal-accent selection:text-white">
+
+    <!-- Top Navigation & Live Header -->
+    <header class="border-b border-terminal-border bg-[#0a0f18] sticky top-0 z-50">
+        <!-- Top Toolbar -->
+        <div class="px-4 py-2 flex flex-wrap items-center justify-between gap-3 border-b border-terminal-border/60">
+            <!-- Brand Logo & Status -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-terminal-accent text-white px-2.5 py-1 rounded font-bold font-mono text-sm tracking-wider flex items-center gap-1.5 shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid fa-bolt text-yellow-300" aria-hidden="true"></i> TERMINAL<span class="text-blue-200">X</span> PRO
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 flex items-center gap-1.5 font-mono">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true"></span> LIVE DATA
+                </span>
+            </div>
+
+            <!-- Ticker Search Bar -->
+            <div class="flex items-center gap-2 flex-grow max-w-xl">
+                <div class="relative w-full">
+                    <label for="tickerSearchInput" class="sr-only">Ticker symbol</label>
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-terminal-muted text-sm" aria-hidden="true"></i>
+                    <input type="text" id="tickerSearchInput" maxlength="12" autocomplete="off" placeholder="Enter Symbol (e.g., NVDA, AAPL, BTC-USD)..."
+                        class="w-full bg-terminal-card border border-terminal-border rounded-lg pl-9 pr-12 py-1.5 text-sm focus:outline-none focus:border-terminal-accent uppercase font-mono tracking-wider transition-colors">
+                    <button id="searchBtn" type="button" aria-label="Search ticker" class="absolute right-1 top-1 text-xs bg-terminal-accent hover:bg-terminal-hover text-white px-2.5 py-1 rounded transition-colors font-medium">
+                        GO
+                    </button>
+                </div>
+            </div>
+
+            <!-- Global Time & System Indicator -->
+            <div class="hidden lg:flex items-center space-x-4 text-xs font-mono text-terminal-muted">
+                <div id="utcClock" class="text-slate-300">UTC 00:00:00</div>
+                <div class="flex items-center gap-1"><i class="fa-solid fa-network-wired text-emerald-400" aria-hidden="true"></i> <span class="text-slate-300">API</span></div>
+            </div>
+        </div>
+
+        <!-- Quick Ticker Preset Buttons -->
+        <div class="px-4 py-1.5 bg-[#080d14] flex items-center space-x-2 overflow-x-auto text-xs no-scrollbar border-b border-terminal-border/40">
+            <span class="text-terminal-muted font-mono font-medium text-[11px] uppercase tracking-wider mr-1 shrink-0">Presets:</span>
+            <button onclick="switchTicker('NVDA')" class="ticker-btn bg-terminal-card hover:bg-slate-800 border border-terminal-border text-slate-200 px-2.5 py-1 rounded font-mono font-medium transition-all">NVDA</button>
+            <button onclick="switchTicker('AAPL')" class="ticker-btn bg-terminal-card hover:bg-slate-800 border border-terminal-border text-slate-200 px-2.5 py-1 rounded font-mono font-medium transition-all">AAPL</button>
+            <button onclick="switchTicker('TSLA')" class="ticker-btn bg-terminal-card hover:bg-slate-800 border border-terminal-border text-slate-200 px-2.5 py-1 rounded font-mono font-medium transition-all">TSLA</button>
+            <button onclick="switchTicker('MSFT')" class="ticker-btn bg-terminal-card hover:bg-slate-800 border border-terminal-border text-slate-200 px-2.5 py-1 rounded font-mono font-medium transition-all">MSFT</button>
+            <button onclick="switchTicker('AMZN')" class="ticker-btn bg-terminal-card hover:bg-slate-800 border border-terminal-border text-slate-200 px-2.5 py-1 rounded font-mono font-medium transition-all">AMZN</button>
+            <button onclick="switchTicker('GOOGL')" class="ticker-btn bg-terminal-card hover:bg-slate-800 border border-terminal-border text-slate-200 px-2.5 py-1 rounded font-mono font-medium transition-all">GOOGL</button>
+            <button onclick="switchTicker('META')" class="ticker-btn bg-terminal-card hover:bg-slate-800 border border-terminal-border text-slate-200 px-2.5 py-1 rounded font-mono font-medium transition-all">META</button>
+            <button onclick="switchTicker('BTC-USD')" class="ticker-btn bg-terminal-card hover:bg-slate-800 border border-terminal-border text-amber-400 border-amber-500/30 px-2.5 py-1 rounded font-mono font-medium transition-all">BTC-USD</button>
+        </div>
+
+        <!-- Active Stock Banner & Real-time Metrics -->
+        <div class="px-4 py-3 bg-terminal-card/50 flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-3">
+                    <h1 id="assetName" class="text-xl font-bold text-white tracking-tight">Loading...</h1>
+                    <span id="assetSymbol" class="font-mono text-sm px-2 py-0.5 rounded bg-terminal-accent/20 text-blue-400 border border-blue-500/30 font-semibold">-</span>
+                    <span id="assetExchange" class="text-xs text-terminal-muted font-mono"></span>
+                </div>
+                <div id="assetSector" class="text-xs text-terminal-muted mt-0.5"></div>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <div>
+                    <div class="text-xs text-terminal-muted font-mono">LAST PRICE</div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="livePrice" class="text-2xl font-bold font-mono-num text-white">$0.00</span>
+                        <span id="liveChange" class="font-mono-num text-sm font-semibold text-emerald-400 flex items-center gap-1">
+                            +$0.00 (+0.00%)
+                        </span>
+                    </div>
+                </div>
+
+                <div class="hidden md:grid grid-cols-4 gap-4 pl-6 border-l border-terminal-border text-xs font-mono">
+                    <div>
+                        <span class="text-terminal-muted block">MARKET CAP</span>
+                        <span id="mktCap" class="text-slate-200 font-semibold">-</span>
+                    </div>
+                    <div>
+                        <span class="text-terminal-muted block">P/E RATIO</span>
+                        <span id="peRatio" class="text-slate-200 font-semibold">-</span>
+                    </div>
+                    <div>
+                        <span class="text-terminal-muted block">52W HIGH / LOW</span>
+                        <span id="range52" class="text-slate-200 font-semibold">-</span>
+                    </div>
+                    <div>
+                        <span class="text-terminal-muted block">BETA</span>
+                        <span id="betaValue" class="text-slate-200 font-semibold">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-4 max-w-[1920px] w-full mx-auto space-y-4">
+
+        <!-- Navigation Tabs Bar -->
+        <div class="flex items-center justify-between border-b border-terminal-border bg-terminal-card rounded-t-lg overflow-x-auto">
+            <div class="flex items-center text-sm font-medium">
+                <button onclick="setActiveTab('tab1')" id="tab1-btn" class="tab-btn tab-active px-4 py-3 flex items-center gap-2 transition-all whitespace-nowrap">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i> Technical Charting
+                </button>
+                <button onclick="setActiveTab('tab2')" id="tab2-btn" class="tab-btn text-terminal-muted hover:text-slate-200 px-4 py-3 flex items-center gap-2 transition-all whitespace-nowrap">
+                    <i class="fa-solid fa-code-compare" aria-hidden="true"></i> Multi-Asset Relative Performance
+                </button>
+                <button onclick="setActiveTab('tab3')" id="tab3-btn" class="tab-btn text-terminal-muted hover:text-slate-200 px-4 py-3 flex items-center gap-2 transition-all whitespace-nowrap">
+                    <i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i> Financial Statements
+                </button>
+                <button onclick="setActiveTab('tab4')" id="tab4-btn" class="tab-btn text-terminal-muted hover:text-slate-200 px-4 py-3 flex items-center gap-2 transition-all whitespace-nowrap">
+                    <i class="fa-solid fa-bullseye" aria-hidden="true"></i> Analyst Targets & Ratings
+                </button>
+                <button onclick="setActiveTab('tab5')" id="tab5-btn" class="tab-btn text-terminal-muted hover:text-slate-200 px-4 py-3 flex items-center gap-2 transition-all whitespace-nowrap">
+                    <i class="fa-solid fa-brain text-purple-400" aria-hidden="true"></i> AI Intelligence Hub
+                </button>
+                <button onclick="setActiveTab('tab6')" id="tab6-btn" class="tab-btn text-terminal-muted hover:text-slate-200 px-4 py-3 flex items-center gap-2 transition-all whitespace-nowrap">
+                    <i class="fa-solid fa-newspaper" aria-hidden="true"></i> News & Sentiment Stream
+                </button>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+
+            <!-- TAB 1: Technical Analysis & Candlestick Charting -->
+            <div id="tab1" class="tab-content block space-y-4">
+                <div class="p-3 bg-terminal-card border border-terminal-border rounded-lg flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center space-x-1 font-mono">
+                        <span class="text-terminal-muted mr-2">TIMEFRAME:</span>
+                        <button onclick="setTimeframe('1D', this)" class="tf-btn px-2.5 py-1 rounded bg-terminal-border text-white hover:bg-slate-700 transition-colors">1D</button>
+                        <button onclick="setTimeframe('1M', this)" class="tf-btn px-2.5 py-1 rounded bg-terminal-border text-white hover:bg-slate-700 transition-colors">1M</button>
+                        <button onclick="setTimeframe('3M', this)" class="tf-btn px-2.5 py-1 rounded bg-terminal-accent text-white font-semibold">3M</button>
+                        <button onclick="setTimeframe('1Y', this)" class="tf-btn px-2.5 py-1 rounded bg-terminal-border text-white hover:bg-slate-700 transition-colors">1Y</button>
+                        <button onclick="setTimeframe('5Y', this)" class="tf-btn px-2.5 py-1 rounded bg-terminal-border text-white hover:bg-slate-700 transition-colors">5Y</button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-4 text-slate-300">
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="chkEMA" onchange="updateChartIndicators()" checked class="rounded bg-terminal-bg border-terminal-border text-terminal-accent focus:ring-0">
+                            <span class="font-mono text-blue-400">EMA (20/50)</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="chkVWAP" onchange="updateChartIndicators()" checked class="rounded bg-terminal-bg border-terminal-border text-terminal-accent focus:ring-0">
+                            <span class="font-mono text-emerald-400">VWAP</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="chkBB" onchange="updateChartIndicators()" checked class="rounded bg-terminal-bg border-terminal-border text-terminal-accent focus:ring-0">
+                            <span class="font-mono text-cyan-300">Bollinger Bands</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="chkRSI" onchange="updateChartIndicators()" checked class="rounded bg-terminal-bg border-terminal-border text-terminal-accent focus:ring-0">
+                            <span class="font-mono text-purple-400">RSI (14)</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="chkMACD" onchange="updateChartIndicators()" checked class="rounded bg-terminal-bg border-terminal-border text-terminal-accent focus:ring-0">
+                            <span class="font-mono text-amber-400">MACD</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="bg-terminal-card border border-terminal-border rounded-lg p-2 min-h-[620px] relative">
+                    <div id="plotlyChart" class="w-full h-[600px]"></div>
+                </div>
+            </div>
+
+            <!-- TAB 2: Multi-Asset Relative Performance -->
+            <div id="tab2" class="tab-content hidden space-y-4">
+                <div class="p-4 bg-terminal-card border border-terminal-border rounded-lg space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-bold text-white">Relative Return Matrix (%)</h3>
+                            <p class="text-xs text-terminal-muted">Compare normalized price return trajectories against benchmark indexes and key industry peers.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label for="peerInput" class="sr-only">Peer tickers</label>
+                            <input type="text" id="peerInput" value="AAPL, MSFT, SPY, QQQ" maxlength="80" placeholder="Enter tickers separated by comma..."
+                                class="bg-terminal-bg border border-terminal-border rounded px-3 py-1.5 text-xs font-mono uppercase focus:outline-none focus:border-terminal-accent">
+                            <button onclick="updatePeerComparison()" class="bg-terminal-accent hover:bg-terminal-hover text-white text-xs px-3 py-1.5 rounded font-medium transition-colors">
+                                Compare
+                            </button>
+                        </div>
+                    </div>
+                    <div id="plotlyPeerChart" class="w-full h-[500px]"></div>
+                </div>
+            </div>
+
+            <!-- TAB 3: Interactive Financial Statements -->
+            <div id="tab3" class="tab-content hidden space-y-4">
+                <div class="p-4 bg-terminal-card border border-terminal-border rounded-lg">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <div class="flex items-center space-x-2">
+                            <button onclick="switchStatement('income')" id="stmtIncomeBtn" class="px-3 py-1.5 rounded text-xs font-semibold bg-terminal-accent text-white">Income Statement</button>
+                            <button onclick="switchStatement('balance')" id="stmtBalanceBtn" class="px-3 py-1.5 rounded text-xs font-semibold bg-terminal-border text-slate-300 hover:bg-slate-700">Balance Sheet</button>
+                            <button onclick="switchStatement('cash')" id="stmtCashBtn" class="px-3 py-1.5 rounded text-xs font-semibold bg-terminal-border text-slate-300 hover:bg-slate-700">Cash Flow</button>
+                        </div>
+
+                        <button id="exportCsvBtn" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded font-semibold flex items-center gap-1.5 transition-colors">
+                            <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export Table to CSV
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto border border-terminal-border rounded-lg">
+                        <table class="w-full text-left text-xs font-mono">
+                            <thead class="bg-[#0b1322] text-terminal-muted border-b border-terminal-border">
+                                <tr>
+                                    <th class="p-3">METRIC ($ MILLIONS USD)</th>
+                                    <th class="p-3 text-right">PERIOD 1</th>
+                                    <th class="p-3 text-right">PERIOD 2</th>
+                                    <th class="p-3 text-right">PERIOD 3 (LATEST)</th>
+                                    <th class="p-3 text-right">YoY GROWTH</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statementTableBody" class="divide-y divide-terminal-border/50 text-slate-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: Analyst Consensus & Target Price Gauge -->
+            <div id="tab4" class="tab-content hidden space-y-4">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="p-4 bg-terminal-card border border-terminal-border rounded-lg flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-base font-bold text-white mb-1">Wall Street Target Price Consensus</h3>
+                            <p class="text-xs text-terminal-muted">Aggregated 12-month analyst price targets and dispersion range.</p>
+                        </div>
+                        <div id="plotlyGaugeChart" class="w-full h-[320px]"></div>
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono pt-2 border-t border-terminal-border">
+                            <div class="p-2 rounded bg-terminal-bg border border-terminal-border">
+                                <span class="text-terminal-muted block">LOW TARGET</span>
+                                <span id="targetLow" class="text-rose-400 font-bold">-</span>
+                            </div>
+                            <div class="p-2 rounded bg-terminal-bg border border-terminal-border">
+                                <span class="text-terminal-muted block">MEAN TARGET</span>
+                                <span id="targetMean" class="text-blue-400 font-bold">-</span>
+                            </div>
+                            <div class="p-2 rounded bg-terminal-bg border border-terminal-border">
+                                <span class="text-terminal-muted block">HIGH TARGET</span>
+                                <span id="targetHigh" class="text-emerald-400 font-bold">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-terminal-card border border-terminal-border rounded-lg space-y-4">
+                        <h3 class="text-base font-bold text-white">Analyst Recommendation Breakdown</h3>
+                        <p class="text-xs text-terminal-muted -mt-2">Illustrative distribution - wire this panel to a real analyst-ratings provider for live figures.</p>
+                        <div class="space-y-3 font-mono text-xs">
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-emerald-400 font-bold">Strong Buy / Buy</span>
+                                    <span class="text-slate-300">82%</span>
+                                </div>
+                                <div class="w-full bg-terminal-bg rounded-full h-2">
+                                    <div class="bg-emerald-500 h-2 rounded-full" style="width: 82%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-amber-400 font-bold">Hold</span>
+                                    <span class="text-slate-300">15%</span>
+                                </div>
+                                <div class="w-full bg-terminal-bg rounded-full h-2">
+                                    <div class="bg-amber-500 h-2 rounded-full" style="width: 15%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-rose-400 font-bold">Sell / Underperform</span>
+                                    <span class="text-slate-300">3%</span>
+                                </div>
+                                <div class="w-full bg-terminal-bg rounded-full h-2">
+                                    <div class="bg-rose-500 h-2 rounded-full" style="width: 3%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-terminal-bg rounded-lg border border-terminal-border space-y-2 text-xs">
+                            <span class="text-terminal-muted uppercase font-mono font-semibold block">Consensus Summary:</span>
+                            <p id="consensusSummaryText" class="text-slate-300 leading-relaxed">
+                                Illustrative sample text - replace with a real analyst-consensus feed for production use.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: AI Intelligence Hub -->
+            <div id="tab5" class="tab-content hidden space-y-4">
+                <div class="p-4 bg-terminal-card border border-terminal-border rounded-lg flex flex-col h-[650px]">
+                    <div class="flex items-center justify-between pb-3 border-b border-terminal-border">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-robot text-purple-400 text-lg" aria-hidden="true"></i>
+                            <div>
+                                <h3 class="text-sm font-bold text-white">TerminalX Market AI Analyst</h3>
+                                <p class="text-[11px] text-terminal-muted">Automated fundamentals summary assistant - not a substitute for professional financial advice.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="aiChatConsole" class="flex-1 overflow-y-auto p-3 my-3 space-y-3 text-xs font-mono bg-terminal-bg rounded-lg border border-terminal-border">
+                        <div class="flex gap-2">
+                            <div class="w-6 h-6 rounded bg-purple-900/50 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold shrink-0">AI</div>
+                            <div class="p-3 rounded-lg bg-terminal-card border border-terminal-border text-slate-200 max-w-2xl leading-relaxed">
+                                Hello. I'm your TerminalX AI Analyst. Ask about valuation ratios, price targets, or a fundamentals summary for <span id="aiActiveTicker" class="text-blue-400 font-bold">NVDA</span>.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-terminal-border flex gap-2">
+                        <label for="aiInputQuery" class="sr-only">Ask AI analyst</label>
+                        <input type="text" id="aiInputQuery" maxlength="500" placeholder="Ask AI Analyst (e.g., 'Summarize growth drivers and valuation risks')..."
+                            class="flex-1 bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500">
+                        <button onclick="handleAiQuery()" type="button" class="bg-purple-600 hover:bg-purple-500 text-white text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition-colors">
+                            <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Query
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: Live News Stream -->
+            <div id="tab6" class="tab-content hidden space-y-4">
+                <div class="p-4 bg-terminal-card border border-terminal-border rounded-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-base font-bold text-white">Institutional Wire & Sentiment Stream</h3>
+                        <span class="text-xs font-mono text-terminal-muted flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500" aria-hidden="true"></span> Live Data Feed
+                        </span>
+                    </div>
+                    <div id="newsStreamList" class="space-y-3 divide-y divide-terminal-border/60"></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="text-center text-[11px] text-terminal-muted py-3 border-t border-terminal-border">
+        TerminalX Pro - market data for informational purposes only, not investment advice.
+    </footer>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/indicators.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
