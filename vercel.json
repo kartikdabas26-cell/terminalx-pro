@@ -1,17 +1,10 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "includeFiles": [
-          "backend/**",
-          "frontend/**"
-        ]
-      }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/index.py": {
+      "includeFiles": ["backend/**", "frontend/**"]
     }
-  ],
+  },
   "routes": [
     {
       "src": "/api/(.*)",
