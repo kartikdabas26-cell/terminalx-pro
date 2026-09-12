@@ -154,6 +154,19 @@ docker compose up -d --build
 5. Set environment variables from `.env.example`, including
   `FINNHUB_API_KEY` and your production `ALLOWED_ORIGINS`.
 
+### Option C: Vercel
+
+The repository includes `vercel.json`, `api/index.py`, and a root
+`requirements.txt` for Vercel's Python runtime.
+
+1. Import the GitHub repository into Vercel.
+2. Keep the project root set to the repository root.
+3. Add `FINNHUB_API_KEY`, `APP_ENV`, and `ALLOWED_ORIGINS` under Project Settings
+  > Environment Variables.
+4. Deploy or redeploy the project.
+
+The FastAPI app is available at `/`, with API routes under `/api/*`.
+
 ### Before going to production
 
 - Set `ALLOWED_ORIGINS` to your actual domain(s) - don't ship `*` publicly.
