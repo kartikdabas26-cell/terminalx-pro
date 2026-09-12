@@ -14,12 +14,20 @@ layer can hand them straight to Pydantic models / JSONResponse.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
+import os
 import random
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Any
+from urllib.parse import urlencode
+from urllib.request import urlopen
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("terminalx.market_data")
 
@@ -38,6 +46,16 @@ except Exception:  # pragma: no cover - import guard, not a logic branch
 # --------------------------------------------------------------------------
 _CACHE: dict[str, tuple[float, Any]] = {}
 _CACHE_TTL_SECONDS = 30
+FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY") or os.environ.get("NEWS_API_KEY")
+FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
+
+
+def _finnhub_get(path: str, **params) -> Any:
+    if not FINNHUB_API_KEY:
+        raise RuntimeError("Finnhub API key is not configured")
+    query = urlencode({**params, "token": FINNHUB_API_KEY})
+    with urlopen(f"{FINNHUB_BASE_URL}{path}?{query}", timeout=10) as response:  # noqa: S310
+        return json.load(response)
 
 
 def _cache_get(key: str):
@@ -156,6 +174,14 @@ def get_quote(ticker: str) -> dict:
     if cached:
         return cached
 
+    if FINNHUB_API_KEY:
+        try:
+            result = _quote_from_finnhub(ticker)
+            _cache_set(cache_key, result)
+            return result
+        except Exception as exc:  # noqa: BLE001 - provider failure -> next fallback
+            logger.info("Finnhub quote failed for %s: %s", ticker, exc)
+
     if YFINANCE_AVAILABLE:
         try:
             result = _quote_from_yfinance(ticker)
@@ -167,6 +193,36 @@ def get_quote(ticker: str) -> dict:
     result = simulate_quote(ticker)
     _cache_set(cache_key, result)
     return result
+
+
+def _quote_from_finnhub(ticker: str) -> dict:
+    quote = _finnhub_get("/quote", symbol=ticker)
+    price = float(quote.get("c") or 0)
+    previous_close = float(quote.get("pc") or price)
+    if price <= 0:
+        raise ValueError("No price data returned")
+    change = float(quote.get("d") or price - previous_close)
+    change_pct = float(quote.get("dp") or 0)
+    profile = _finnhub_get("/stock/profile2", symbol=ticker)
+    market_cap = float(profile.get("marketCapitalization") or 0)
+    return {
+        "ticker": ticker,
+        "name": profile.get("name") or ticker,
+        "sector": "n/a",
+        "exchange": profile.get("exchange") or "n/a",
+        "price": round(price, 2),
+        "change": round(change, 2),
+        "changePct": round(change_pct, 2),
+        "marketCap": f"${market_cap / 1000:.2f} B" if market_cap else "n/a",
+        "pe": "n/a",
+        "range52": "n/a",
+        "beta": "n/a",
+        "targetLow": "n/a",
+        "targetMean": "n/a",
+        "targetHigh": "n/a",
+        "summary": profile.get("name") or "No summary available.",
+        "source": "finnhub",
+    }
 
 
 def _quote_from_yfinance(ticker: str) -> dict:
@@ -305,11 +361,29 @@ def _financials_from_yfinance(ticker: str) -> dict:
 
 
 def get_news(ticker: str) -> list[dict]:
-    """Real news requires a licensed news API key (NewsAPI, Benzinga, etc.).
-    Without one configured we return clearly-labelled illustrative items so
-    the UI never lies about the data being live."""
+    """Return recent Finnhub company news, or clearly-labelled sample data."""
     ticker = normalize_ticker(ticker)
     now = datetime.now(timezone.utc)
+    if FINNHUB_API_KEY:
+        try:
+            start = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+            end = now.strftime("%Y-%m-%d")
+            items = _finnhub_get("/company-news", symbol=ticker, **{"from": start, "to": end})
+            return [
+                {
+                    "title": item.get("headline") or "Untitled news item",
+                    "source": item.get("source") or "Finnhub",
+                    "time": datetime.fromtimestamp(item["datetime"], timezone.utc).isoformat()
+                    if item.get("datetime")
+                    else now.isoformat(),
+                    "sentiment": "Neutral",
+                    "url": item.get("url") or "#",
+                }
+                for item in items[:20]
+            ]
+        except Exception as exc:  # noqa: BLE001 - sample feed keeps UI available
+            logger.info("Finnhub news failed for %s: %s", ticker, exc)
+
     return [
         {
             "title": f"{ticker}: sample headline - configure NEWS_API_KEY for live wire data",

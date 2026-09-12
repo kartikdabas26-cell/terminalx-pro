@@ -69,7 +69,12 @@ class AiQueryResponse(BaseModel):
 # --------------------------------------------------------------------------
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "env": APP_ENV, "yfinance_available": market_data.YFINANCE_AVAILABLE}
+    return {
+        "status": "ok",
+        "env": APP_ENV,
+        "yfinance_available": market_data.YFINANCE_AVAILABLE,
+        "finnhub_configured": bool(market_data.FINNHUB_API_KEY),
+    }
 
 
 @app.get("/api/quote/{ticker}")
