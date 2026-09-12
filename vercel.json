@@ -6,10 +6,26 @@
       "use": "@vercel/python"
     }
   ],
+  "functions": {
+    "api/index.py": {
+      "includeFiles": [
+        "backend/**",
+        "frontend/**"
+      ]
+    }
+  },
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/api/(.*)",
       "dest": "api/index.py"
+    },
+    {
+      "src": "/",
+      "dest": "/frontend/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/$1"
     }
   ]
 }
