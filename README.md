@@ -88,18 +88,20 @@ terminalx-pro/
 | GET    | `/api/quote/{ticker}`    | Current price + key stats                  |
 | GET    | `/api/history/{ticker}`  | OHLCV candles (`?period=1d|1mo|3mo|1y|5y`) |
 | GET    | `/api/financials/{ticker}` | Income/balance/cash-flow rows           |
-| GET    | `/api/news/{ticker}`     | News items (sample data unless you wire up a news API) |
+| GET    | `/api/news/{ticker}`     | Recent company news from Finnhub when configured |
 | POST   | `/api/ai/query`          | Fundamentals-based text summary            |
 
 All routes validate and normalize the ticker server-side
 (`market_data.normalize_ticker`) and are rate-limited via `slowapi`.
 
-Real data comes from [`yfinance`](https://pypi.org/project/yfinance/),
-which scrapes Yahoo Finance's public endpoints - it's free and has no API
-key, but it is **not an official, SLA-backed API**. For a real production
-trading/research product, swap `market_data.py`'s yfinance calls for a
-licensed provider (Polygon.io, IEX Cloud, Alpha Vantage, Bloomberg, etc.);
-the function signatures are the seam to do that behind.
+Quotes and company news use [Finnhub](https://finnhub.io/) when
+`FINNHUB_API_KEY` is configured in `.env`. Historical prices and financial
+statements use [`yfinance`](https://pypi.org/project/yfinance/), which is
+free and requires no key, but is not an official, SLA-backed API. Provider
+failures fall back to yfinance and then clearly-labelled simulation data.
+
+Copy `.env.example` to `.env` and set `FINNHUB_API_KEY` for live quotes and
+news. Never commit `.env` or expose the key in frontend code.
 
 The **AI Intelligence Hub** currently returns a deterministic,
 template-based summary built from the real quote data - it is *not* a
@@ -149,17 +151,16 @@ docker compose up -d --build
 2. Create a new Web Service pointing at the repo.
 3. Build command: `pip install -r backend/requirements.txt`
 4. Start command: `gunicorn main:app -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:$PORT --chdir backend`
-5. Set environment variables from `.env.example` (at minimum
-   `ALLOWED_ORIGINS` to your real domain).
+5. Set environment variables from `.env.example`, including
+  `FINNHUB_API_KEY` and your production `ALLOWED_ORIGINS`.
 
 ### Before going to production
 
 - Set `ALLOWED_ORIGINS` to your actual domain(s) - don't ship `*` publicly.
 - Put the app behind HTTPS (most PaaS providers do this for you; if you're
   on a bare VPS, put nginx/Caddy in front with a TLS cert).
-- Replace `yfinance` with a licensed market-data provider if this is for
-  real trading/research decisions, and add a real news provider for the
-  News tab.
+- Finnhub and yfinance data may be delayed, rate-limited, or unavailable;
+  validate data freshness before using this for trading decisions.
 - Tailwind is still loaded from the CDN `<script src="https://cdn.tailwindcss.com">`
   build, which is fine for internal tools/MVPs but is not meant for
   high-traffic production sites (no purging, larger runtime cost). To
@@ -173,8 +174,7 @@ docker compose up -d --build
 
 - No WebSocket/streaming feed - the frontend polls `/api/quote/{ticker}`
   every 15s (configurable in `frontend/js/config.js`).
-- News and the "Analyst Recommendation Breakdown" panel are illustrative
-  placeholders until you plug in a licensed provider.
+- The "Analyst Recommendation Breakdown" panel remains illustrative.
 - `yfinance` has no official uptime guarantee and can be rate-limited by
   Yahoo; the 30s in-memory cache in `market_data.py` reduces load but a
   multi-instance production deploy should replace it with Redis or similar.
